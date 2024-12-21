@@ -6,6 +6,8 @@ import requests
 from bs4 import BeautifulSoup
 from PyPDF2 import PdfMerger
 
+NO_SECTION = "DEFAULT_SECTION"
+
 
 def get_page_title(url):
     try:
@@ -25,23 +27,29 @@ def download_page_as_pdf(url, full_output_path):
         print(f"An error occurred: {e}")
 
 
-def process_url(url, counter):
+def process_url(url, counter, section=None):
     title = get_page_title(url)
-    print(f"Found page: {title}")
+    print(f"!!!! Found page: {title}")
     # Shorten the title to 20 characters and replace spaces with underscores
     short_title = title[:20].replace(" ", "_")
     output_path = f"{counter}_{short_title}.pdf"
-    output_dir = "scraper_dump"
+    if section:
+        output_dir = os.path.join("scraper_dump", section)
+    else:
+        output_dir = "scraper_dump"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     full_output_path = os.path.join(output_dir, output_path)
     download_page_as_pdf(url, full_output_path)
-    print(f"Saved page as {full_output_path}")
+    print(f"++++ Saved page as {full_output_path}\n")
     return full_output_path
 
 
-def merge_files(file_paths):
-    print("Merging the following files:")
+def merge_files(file_paths, section=None):
+    if section:
+        print(f"==== Merging the following files for section {section}:")
+    else:
+        print("==== Merging the following files:")
     for path in file_paths:
         print(path)
 
@@ -49,10 +57,32 @@ def merge_files(file_paths):
     for pdf in file_paths:
         merger.append(pdf)
 
-    merged_output_path = os.path.join("scraper_dump", "Merged.pdf")
+    if section:
+        merged_output_path = os.path.join("scraper_dump", f"{section}.pdf")
+    else:
+        merged_output_path = os.path.join("scraper_dump", "Merged.pdf")
     merger.write(merged_output_path)
     merger.close()
-    print(f"Merged PDF saved as {merged_output_path}")
+    print(f"==== Merged PDF saved as {merged_output_path}\n")
+
+
+def parse_input_file(file_path):
+    sections = {}
+    current_section = None
+    with open(file_path, "r") as file:
+        for line in file:
+            line = line.strip()
+            if line.startswith("#"):
+                current_section = line[1:].strip().replace(" ", "_")
+                sections[current_section] = []
+            elif line:
+                if current_section is not None:
+                    sections[current_section].append(line)
+                else:
+                    if NO_SECTION not in sections:
+                        sections[NO_SECTION] = []
+                    sections[NO_SECTION].append(line)
+    return sections
 
 
 def print_help():
@@ -75,21 +105,28 @@ if __name__ == "__main__":
         if input_arg in ("-h", "--help"):
             print_help()
         elif os.path.isfile(input_arg):
-            with open(input_arg, "r") as file:
-                urls = file.readlines()
-            output_paths = []
-            counter = 1
-            for url in urls:
-                url = url.strip()
-                if url:
+            sections = parse_input_file(input_arg)
+            if NO_SECTION in sections and len(sections) == 1:
+                # Process as a plain file with just URLs
+                output_paths = []
+                counter = 1
+                for url in sections[NO_SECTION]:
                     output_path = process_url(url, counter)
                     output_paths.append(output_path)
                     counter += 1
-            merge_prompt = input("Merge? (Y/N): ").strip().lower()
-            if merge_prompt == "y":
                 merge_files(output_paths)
+            else:
+                # Process as a file with sections
+                for section, urls in sections.items():
+                    output_paths = []
+                    counter = 1
+                    for url in urls:
+                        output_path = process_url(url, counter, section)
+                        output_paths.append(output_path)
+                        counter += 1
+                    merge_files(output_paths, section)
         else:
-            process_url(input_arg, 1)
+            output_path = process_url(input_arg, 1)
     else:
         escape_character = "quit"
         counter = 1
