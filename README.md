@@ -11,29 +11,6 @@ Useful for downloading documentation and feeding it into a notebookLM.
 -   Automatically generates filenames based on the webpage title.
 -   Option to merge all downloaded PDFs into a single PDF.
 
-## Installation
-
-1. Clone the repository:
-
-    ```sh
-    git clone https://github.com/yourusername/scraper.git
-    cd scraper
-    ```
-
-2. Install the required dependencies:
-
-    ```sh
-    pip install -r requirements.txt
-    ```
-
-## Requirements
-
--   Python 3.x
--   `pdfkit`
--   `requests`
--   `beautifulsoup4`
--   `PyPDF2`
-
 ## Usage
 
 ### Command Line Options
@@ -86,20 +63,6 @@ After processing the URLs, you will be prompted to merge the downloaded PDFs int
 Merge? (Y/N):
 ```
 
-## Examples
+## License
 
-1. **Download a single webpage as a PDF**:
-
-    ```sh
-    ./scraper.py http://example.com
-    ```
-
-2. **Download multiple webpages from a file and merge them**:
-
-    ```sh
-    ./scraper.py urls.txt
-    ```
-
-## Contributing
-
-Contributions are welcome! Please open an issue or submit a pull request.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
