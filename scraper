@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+import pdfkit
+import sys
+import os
+import requests
+from bs4 import BeautifulSoup
+from PyPDF2 import PdfMerger
+
+
+def get_page_title(url):
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
+        return soup.title.string.strip() if soup.title else "Untitled"
+    except Exception as e:
+        print(f"An error occurred while fetching the title: {e}")
+        return "Untitled"
+
+
+def download_page_as_pdf(url, full_output_path):
+    try:
+        pdfkit.from_url(url, full_output_path)
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+
+def process_url(url, counter):
+    title = get_page_title(url)
+    print(f"Found page: {title}")
+    # Shorten the title to 20 characters and replace spaces with underscores
+    short_title = title[:20].replace(" ", "_")
+    output_path = f"{counter}_{short_title}.pdf"
+    output_dir = "scraper_dump"
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    full_output_path = os.path.join(output_dir, output_path)
+    download_page_as_pdf(url, full_output_path)
+    print(f"Saved page as {full_output_path}")
+    return full_output_path
+
+
+def merge_files(file_paths):
+    print("Merging the following files:")
+    for path in file_paths:
+        print(path)
+
+    merger = PdfMerger()
+    for pdf in file_paths:
+        merger.append(pdf)
+
+    merged_output_path = os.path.join("scraper_dump", "Merged.pdf")
+    merger.write(merged_output_path)
+    merger.close()
+    print(f"Merged PDF saved as {merged_output_path}")
+
+
+def print_help():
+    print("Usage: scraper.py [options] <file_with_urls | single_url>")
+    print("Options:")
+    print("  -h, --help    Show this help message and exit")
+    print(
+        "\nIf a file with URLs is provided, the script will process each URL in the file."
+    )
+    print("If a single URL is provided, the script will process that URL.")
+    print(
+        "If no file or URL is provided, the script will prompt for URLs interactively."
+    )
+    print("Enter URLs one by one. Type 'quit' to finish and prompt for merging.")
+
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        input_arg = sys.argv[1]
+        if input_arg in ("-h", "--help"):
+            print_help()
+        elif os.path.isfile(input_arg):
+            with open(input_arg, "r") as file:
+                urls = file.readlines()
+            output_paths = []
+            counter = 1
+            for url in urls:
+                url = url.strip()
+                if url:
+                    output_path = process_url(url, counter)
+                    output_paths.append(output_path)
+                    counter += 1
+            merge_prompt = input("Merge? (Y/N): ").strip().lower()
+            if merge_prompt == "y":
+                merge_files(output_paths)
+        else:
+            process_url(input_arg, 1)
+    else:
+        escape_character = "quit"
+        counter = 1
+        output_paths = []
+        print("Enter URLs one by one. Type 'quit' to finish and prompt for merging.")
+        while True:
+            url = input("Enter URL (or type 'quit' to quit): ")
+            if url.lower() == escape_character:
+                print("Exiting the program.")
+                merge_prompt = input("Merge? (Y/N): ").strip().lower()
+                if merge_prompt == "y":
+                    merge_files(output_paths)
+                break
+            if not url:
+                print("Error: URL cannot be empty. Please enter a valid URL.")
+                continue
+            output_path = process_url(url, counter)
+            output_paths.append(output_path)
+            counter += 1
