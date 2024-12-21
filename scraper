@@ -113,7 +113,6 @@ def download_concurrently(tasks):
             for url, path in tasks
         }
         for future in as_completed(futures):
-            future.result()  # Ensure the thread completes
             output_paths.append(futures[future])
     return output_paths
 
