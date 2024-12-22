@@ -56,6 +56,12 @@ def merge_files(file_paths, section=None):
         print(f"==== Merging the following files for section {section}:")
     else:
         print("==== Merging the following files:")
+
+    # Sort the file paths numerically based on the prefix number
+    file_paths = sorted(
+        file_paths, key=lambda x: int(os.path.basename(x).split("_")[0])
+    )
+
     for path in file_paths:
         print(path)
 
