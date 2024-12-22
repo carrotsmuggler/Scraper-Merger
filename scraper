@@ -29,23 +29,32 @@ def download_page_as_pdf(url, full_output_path):
         print(f"An error occurred: {e}")
 
 
-def process_urls(urls_with_counters, section=None):
-    tasks = []
-    for counter, url in urls_with_counters:
-        title = get_page_title(url)
-        print(f"!!!! Found page: {title}")
-        # Shorten the title to 20 characters and replace spaces with underscores
-        short_title = title[:20].replace(" ", "_")
-        output_path = f"{counter}_{short_title}.pdf"
-        if section:
-            output_dir = os.path.join("scraper_dump", section)
-        else:
-            output_dir = "scraper_dump"
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-        full_output_path = os.path.join(output_dir, output_path)
-        tasks.append((url, full_output_path))
-    return tasks
+def process_url(counter, url, section=None):
+    title = get_page_title(url)
+    print(f"!!!! Found page: {title}")
+    short_title = title[:20].replace(" ", "_")
+    output_path = f"{counter}_{short_title}.pdf"
+    if section:
+        output_dir = os.path.join("scraper_dump", section)
+    else:
+        output_dir = "scraper_dump"
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    full_output_path = os.path.join(output_dir, output_path)
+    download_page_as_pdf(url, full_output_path)
+    return full_output_path
+
+
+def download_concurrent(urls_with_counters, section=None):
+    output_paths = []
+    with ThreadPoolExecutor() as executor:
+        futures = {
+            executor.submit(process_url, counter, url, section): (counter, url)
+            for counter, url in urls_with_counters
+        }
+        for future in as_completed(futures):
+            output_paths.append(future.result())
+    return output_paths
 
 
 def merge_files(file_paths, section=None):
@@ -111,18 +120,6 @@ def print_help():
     print("Enter URLs one by one. Type 'quit' to finish and prompt for merging.")
 
 
-def download_concurrently(tasks):
-    output_paths = []
-    with ThreadPoolExecutor() as executor:
-        futures = {
-            executor.submit(download_page_as_pdf, url, path): path
-            for url, path in tasks
-        }
-        for future in as_completed(futures):
-            output_paths.append(futures[future])
-    return output_paths
-
-
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         input_arg = sys.argv[1]
@@ -131,19 +128,14 @@ if __name__ == "__main__":
         elif os.path.isfile(input_arg):
             sections = parse_input_file(input_arg)
             if NO_SECTION in sections and len(sections) == 1:
-                # Process as a plain file with just URLs
-                tasks = process_urls(sections[NO_SECTION])
-                output_paths = download_concurrently(tasks)
-                merge_files(output_paths)
+                output_file_paths = download_concurrent(sections[NO_SECTION])
+                merge_files(output_file_paths)
             else:
-                # Process as a file with sections
                 for section, urls_with_counters in sections.items():
-                    tasks = process_urls(urls_with_counters, section)
-                    output_paths = download_concurrently(tasks)
-                    merge_files(output_paths, section)
+                    output_file_paths = download_concurrent(urls_with_counters, section)
+                    merge_files(output_file_paths, section)
         else:
-            tasks = process_urls([(1, input_arg)])
-            output_paths = download_concurrently(tasks)
+            output_file_paths = download_concurrent([(1, input_arg)])
     else:
         escape_character = "quit"
         urls = []
@@ -157,8 +149,7 @@ if __name__ == "__main__":
                 print("Error: URL cannot be empty. Please enter a valid URL.")
                 continue
             urls.append((len(urls) + 1, url))
-        tasks = process_urls(urls)
-        output_paths = download_concurrently(tasks)
+        output_file_paths = download_concurrent(urls)
         merge_prompt = input("Merge? (Y/N): ").strip().lower()
         if merge_prompt == "y":
-            merge_files(output_paths)
+            merge_files(output_file_paths)
