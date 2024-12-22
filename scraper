@@ -29,10 +29,9 @@ def download_page_as_pdf(url, full_output_path):
         print(f"An error occurred: {e}")
 
 
-def process_urls(urls, section=None):
+def process_urls(urls_with_counters, section=None):
     tasks = []
-    counter = 1
-    for url in urls:
+    for counter, url in urls_with_counters:
         title = get_page_title(url)
         print(f"!!!! Found page: {title}")
         # Shorten the title to 20 characters and replace spaces with underscores
@@ -46,7 +45,6 @@ def process_urls(urls, section=None):
             os.makedirs(output_dir)
         full_output_path = os.path.join(output_dir, output_path)
         tasks.append((url, full_output_path))
-        counter += 1
     return tasks
 
 
@@ -89,11 +87,13 @@ def parse_input_file(file_path):
                 sections[current_section] = []
             elif line:
                 if current_section is not None:
-                    sections[current_section].append(line)
+                    sections[current_section].append(
+                        (len(sections[current_section]) + 1, line)
+                    )
                 else:
                     if NO_SECTION not in sections:
                         sections[NO_SECTION] = []
-                    sections[NO_SECTION].append(line)
+                    sections[NO_SECTION].append((len(sections[NO_SECTION]) + 1, line))
     return sections
 
 
@@ -137,16 +137,15 @@ if __name__ == "__main__":
                 merge_files(output_paths)
             else:
                 # Process as a file with sections
-                for section, urls in sections.items():
-                    tasks = process_urls(urls, section)
+                for section, urls_with_counters in sections.items():
+                    tasks = process_urls(urls_with_counters, section)
                     output_paths = download_concurrently(tasks)
                     merge_files(output_paths, section)
         else:
-            tasks = process_urls([input_arg])
+            tasks = process_urls([(1, input_arg)])
             output_paths = download_concurrently(tasks)
     else:
         escape_character = "quit"
-        counter = 1
         urls = []
         print("Enter URLs one by one. Type 'quit' to finish and prompt for merging.")
         while True:
@@ -157,7 +156,7 @@ if __name__ == "__main__":
             if not url:
                 print("Error: URL cannot be empty. Please enter a valid URL.")
                 continue
-            urls.append(url)
+            urls.append((len(urls) + 1, url))
         tasks = process_urls(urls)
         output_paths = download_concurrently(tasks)
         merge_prompt = input("Merge? (Y/N): ").strip().lower()
