@@ -11,6 +11,7 @@ Useful for downloading documentation and feeding it into a notebookLM.
 -   Interactive mode to enter URLs one by one.
 -   Automatically generates filenames based on the webpage title.
 -   Option to merge all downloaded PDFs into a single PDF.
+-   Option to run OCR.
 
 ## Installation
 
@@ -19,6 +20,7 @@ Useful for downloading documentation and feeding it into a notebookLM.
     ```sh
     git clone https://github.com/carrotsmuggler/Scraper-Merger.git
     cd Scraper-Merger
+    chmod +x scraper
     ```
 
 2. Install the required dependencies:
@@ -34,37 +36,43 @@ Useful for downloading documentation and feeding it into a notebookLM.
 -   `requests`
 -   `beautifulsoup4`
 -   `PyPDF2`
+-   `pytesseract`
+-   `pdf2image`
+-   `reportlab`
+-   `pymupdf`
 
 ## Usage
 
 ### Command Line Options
 
 -   `-h`, `--help`: Show the help message and exit.
+-   `--ocr`: Run OCR on the merged PDFs.
+-   `--ocr-only`: Skips the scraping and only runs the OCR extractor script.
 
 ### Running the Script
 
 1. **Process a Single URL**
 
     ```sh
-    ./scraper.py <URL>
+    ./scraper <URL>
     ```
 
     Example:
 
     ```sh
-    ./scraper.py http://example.com
+    ./scraper http://example.com
     ```
 
 2. **Process Multiple URLs from a File**
 
     ```sh
-    ./scraper.py <file_with_urls>
+    ./scraper <file_with_urls>
     ```
 
     Example:
 
     ```sh
-    ./scraper.py urls.txt
+    ./scraper urls.txt
     ```
 
     The `urls.txt` file can contain one URL per line or sections with URLs. If sections are used, each section should start with a line beginning with `#`, followed by the section name. URLs under each section will be processed and merged into separate PDF files.
@@ -88,7 +96,7 @@ Useful for downloading documentation and feeding it into a notebookLM.
     If no URL or file is provided, the script will prompt you to enter URLs interactively.
 
     ```sh
-    ./scraper.py
+    ./scraper
     ```
 
     Enter URLs one by one. Type `quit` to finish and prompt for merging.
@@ -98,7 +106,31 @@ Useful for downloading documentation and feeding it into a notebookLM.
 After processing the URLs, you will be prompted to merge the downloaded PDFs into a single PDF.
 
 ```sh
-Merge? (Y/N):
+Merge files? (Y/N):
+```
+
+### Running OCR
+
+Some pdfs are downloaded as images, with no searchable text. This can be an issue for LLMs and notebooks. To solve this, you can object character recognition (OCR) with tesseract to convert the pdfs to images.
+
+To run OCR, use the `--ocr` flag. This will convert all the merged files into text and save them as pdfs. Can look meddy, but is searchable text. OCR restuls are saved in the `ocr-extracted` folder.
+
+```sh
+./scraper urls.txt --ocr
+```
+
+If you have already run the scraper and later decide to run ocr as well, no need to scrape again. Using the `ocr-only` flag lets you run just the ocr part. This converts the passed in files to ocr pdfs.
+
+You can either pass in the list of file paths, or a directory and all the pdf files in the top level of the directory will be processed with OCR.
+
+```sh
+./scraper --ocr-only result.pdf
+```
+
+Or,
+
+```sh
+./scraper --ocr-only ./scraper-dump
 ```
 
 ## License

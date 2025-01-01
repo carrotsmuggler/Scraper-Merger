@@ -6,6 +6,7 @@ import requests
 from bs4 import BeautifulSoup
 from PyPDF2 import PdfMerger
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from ocr_extractor import run_ocr  # Import the run_ocr function
 
 NO_SECTION = "DEFAULT_SECTION"
 
@@ -83,6 +84,7 @@ def merge_files(file_paths, section=None):
     merger.write(merged_output_path)
     merger.close()
     print(f"==== Merged PDF saved as {merged_output_path}\n")
+    return merged_output_path  # Return the merged output path
 
 
 def parse_input_file(file_path):
@@ -110,6 +112,8 @@ def print_help():
     print("Usage: scraper.py [options] <file_with_urls | single_url>")
     print("Options:")
     print("  -h, --help    Show this help message and exit")
+    print("  --ocr         Run OCR on the merged PDFs")
+    print("  --ocr-only    Skips the scraping and only runs the ocr extractor script")
     print(
         "\nIf a file with URLs is provided, the script will process each URL in the file."
     )
@@ -121,22 +125,42 @@ def print_help():
 
 
 if __name__ == "__main__":
+    merge_output_paths = []
+    # check OCR flag
+    run_ocr_flag = "--ocr" in sys.argv
+    if run_ocr_flag:
+        sys.argv.remove("--ocr")
+
+    # check OCR-only flag
+    run_ocr_only_flag = "--ocr-only" in sys.argv
+    if run_ocr_only_flag:
+        sys.argv.remove("--ocr-only")
+        run_ocr(sys.argv[1:])
+        exit()
+
     if len(sys.argv) > 1:
+        # Argument mode
         input_arg = sys.argv[1]
         if input_arg in ("-h", "--help"):
             print_help()
         elif os.path.isfile(input_arg):
+            # File mode
             sections = parse_input_file(input_arg)
             if NO_SECTION in sections and len(sections) == 1:
+                # Raw file with URLs
                 output_file_paths = download_concurrent(sections[NO_SECTION])
-                merge_files(output_file_paths)
+                merge_output_paths.append(merge_files(output_file_paths))
             else:
+                # File with sections
                 for section, urls_with_counters in sections.items():
                     output_file_paths = download_concurrent(urls_with_counters, section)
-                    merge_files(output_file_paths, section)
+                    merge_output_paths.append(merge_files(output_file_paths, section))
         else:
+            # URL mode
             output_file_paths = download_concurrent([(1, input_arg)])
+            merge_output_paths.append(output_file_paths[0])
     else:
+        # Interactive mode
         escape_character = "quit"
         urls = []
         print("Enter URLs one by one. Type 'quit' to finish and prompt for merging.")
@@ -150,6 +174,10 @@ if __name__ == "__main__":
                 continue
             urls.append((len(urls) + 1, url))
         output_file_paths = download_concurrent(urls)
-        merge_prompt = input("Merge? (Y/N): ").strip().lower()
+        merge_prompt = input("Merge files? (Y/N): ").strip().lower()
         if merge_prompt == "y":
-            merge_files(output_file_paths)
+            merge_output_paths.append(merge_files(output_file_paths))
+        else:
+            merge_output_paths = output_file_paths
+    if run_ocr_flag:
+        run_ocr(merge_output_paths)
